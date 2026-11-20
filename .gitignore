@@ -9,3 +9,25 @@ kubeconfig*
 .env
 .env.*
 !.env.example
+
+# --- Secrets (garde-fou Nautilus) ---
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+*.keystore
+*.ppk
+id_rsa*
+id_dsa*
+id_ecdsa*
+id_ed25519*
+*.credentials.json
+.credentials.json
+kubeconfig*
+.claude/settings.local.json
+.npmrc
+.netrc
