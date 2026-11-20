@@ -1,0 +1,14 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "f=$(ls -1 \"$CLAUDE_PROJECT_DIR\"/.claude/sessions/20*.md 2>/dev/null | tail -1); if [ -n \"$f\" ]; then echo \"[Dernière session : $(basename \"$f\")]\"; tail -n 60 \"$f\"; else echo \"[Aucune session précédente dans .claude/sessions]\"; fi"
+          }
+        ]
+      }
+    ]
+  }
+}

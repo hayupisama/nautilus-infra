@@ -1,0 +1,11 @@
+.DS_Store
+.idea/
+.vscode/
+*.tgz
+charts/*/charts/
+*.dec.yaml
+*.decrypted.*
+kubeconfig*
+.env
+.env.*
+!.env.example
