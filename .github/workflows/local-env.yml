@@ -1,4 +1,6 @@
-# Verifie l'environnement local (local/compose.yaml) : demarrage, healthchecks, realm Keycloak, comptes de test.
+# Verifie l'environnement local (local/compose.yaml) : demarrage, healthchecks, realm Keycloak, comptes de test, OSRM.
+# Les donnees OSRM preparees sont mises en cache : l'extrait (~360 Mo) n'est telecharge et prepare
+# qu'a un changement d'extrait, d'image OSRM ou des scripts de preparation.
 name: local-env
 
 on:
@@ -23,7 +25,7 @@ concurrency:
 jobs:
   compose:
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    timeout-minutes: 40
     defaults:
       run:
         working-directory: local
@@ -31,26 +33,49 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Lint des scripts (shellcheck)
-        run: shellcheck scripts/*.sh postgres/init/*.sh
+        run: shellcheck scripts/*.sh postgres/init/*.sh osrm/*.sh
 
       - name: Realm JSON valide
         run: python3 -m json.tool keycloak/import/nautilus-realm.json >/dev/null
 
       - name: .env avec valeurs aleatoires (aucune valeur versionnee ni affichee)
-        run: ./scripts/init-env.sh
+        run: |
+          ./scripts/init-env.sh
+          # Donnees OSRM dans un dossier (et non un volume) pour pouvoir les mettre en cache
+          mkdir -p .osrm-data
+          echo "OSRM_DATA_DIR=./.osrm-data" >> .env
+
+      - name: Cle du cache OSRM (image, extrait, scripts)
+        id: osrm-key
+        run: |
+          key=$( { grep -E 'osrm-backend:|OSRM_PBF_(URL|MD5)|OSRM_PROFILE' compose.yaml; cat osrm/*.sh; } | sha256sum | cut -c1-16)
+          echo "key=osrm-data-$key" >> "$GITHUB_OUTPUT"
+
+      - name: Cache des donnees OSRM
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: local/.osrm-data
+          key: ${{ steps.osrm-key.outputs.key }}
 
       - name: Validation du fichier compose
         run: docker compose config -q
 
       - name: Demarrage (attente des healthchecks)
-        run: docker compose up -d --wait --wait-timeout 300
+        run: docker compose up -d --wait --wait-timeout 1800
 
-      - name: Verifications (PostGIS, realm, clients PKCE, comptes de test)
+      - name: Verifications (PostGIS, realm, clients PKCE, comptes de test, OSRM)
         run: ./scripts/verify.sh
+
+      - name: Allegement du cache OSRM (l'extrait brut n'est plus utile une fois prepare)
+        run: rm -f .osrm-data/region.osm.pbf && du -sh .osrm-data
 
       - name: Journaux en cas d'echec
         if: failure()
         run: docker compose logs --no-color --tail 200
+
+      - name: Memoire consommee
+        if: always()
+        run: docker stats --no-stream --format '{{.Name}} {{.MemUsage}}'
 
       - name: Arret et nettoyage
         if: always()

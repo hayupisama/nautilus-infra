@@ -21,7 +21,7 @@ scripts/               # bootstrap k3s, sauvegarde, restauration
 
 ## État
 
-Environnement local en place (U44) : `local/compose.yaml` (PostGIS + Keycloak, realm `nautilus` importé depuis `local/keycloak/import/`), vérifié par `local/scripts/verify.sh` et le workflow `local-env`. VPS : bootstrap k3s + cert-manager, puis chart `nautilus-api` (en attente du VPS).
+Environnement local en place (U44, U45) : `local/compose.yaml` (PostGIS + Keycloak, realm `nautilus` importé depuis `local/keycloak/import/` ; OSRM sur l'extrait Pays de la Loire, préparé automatiquement par `local/osrm/`), vérifié par `local/scripts/verify.sh` et le workflow `local-env`. VPS : bootstrap k3s + cert-manager, puis chart `nautilus-api` (en attente du VPS).
 
 ## Règles
 

@@ -1,4 +1,4 @@
-# Environnement local Nautilus : PostgreSQL/PostGIS + Keycloak (realm "nautilus" importe au demarrage).
+# Environnement local Nautilus : PostgreSQL/PostGIS + Keycloak (realm "nautilus" importe au demarrage) + OSRM.
 # Usage : voir local/README.md. Les variables viennent de local/.env (copie REMPLIE de .env.example) :
 # aucune valeur sensible n'est ecrite ici ni dans le depot.
 name: nautilus-local
@@ -73,5 +73,69 @@ services:
           memory: 1g
     restart: unless-stopped
 
+  # --- OSRM (itineraires, extrait OSM Pays de la Loire) ---
+  # Chaine : osrm-download (une fois) -> osrm-prepare (une fois) -> osrm (serveur). Les deux premiers
+  # services sont ponctuels et relancables : ils ne refont rien si les donnees du volume sont a jour.
+  osrm-download:
+    image: curlimages/curl:8.23.0@sha256:3fb7e13e5d179a845c97d78204f3f1064d1907037f26a3ebf91710571151fd93
+    # root : le volume nomme est cree avec le proprietaire root
+    user: "0:0"
+    entrypoint: ["sh", "/osrm-scripts/download.sh"]
+    environment:
+      # Extrait date et conserve durablement par Geofabrik (fichiers du 1er janvier) : donnees reproductibles.
+      OSRM_PBF_URL: ${OSRM_PBF_URL:-https://download.geofabrik.de/europe/france/pays-de-la-loire/pays-de-la-loire-260101.osm.pbf}
+      OSRM_PBF_MD5: ${OSRM_PBF_MD5:-aa15a608a2a96ab7bd0474c1f92de933}
+    volumes:
+      - ${OSRM_DATA_DIR:-osrm-data}:/data
+      - ./osrm:/osrm-scripts:ro
+    deploy:
+      resources:
+        limits:
+          memory: 128m
+    restart: "no"
+
+  osrm-prepare:
+    image: &osrm-image ghcr.io/project-osrm/osrm-backend:v26.11.0-debian@sha256:e1929ae2818226284d7ef007329098a30851c11528ab3712bc9c8d68da78278b
+    entrypoint: ["sh", "/osrm-scripts/prepare.sh"]
+    environment:
+      OSRM_PROFILE: car
+    volumes:
+      - ${OSRM_DATA_DIR:-osrm-data}:/data
+      - ./osrm:/osrm-scripts:ro
+    depends_on:
+      osrm-download:
+        condition: service_completed_successfully
+    deploy:
+      resources:
+        limits:
+          # Pic de l'extraction (ponctuel, premier demarrage seulement) ; voir README
+          memory: ${OSRM_PREPARE_MEMORY:-3g}
+    restart: "no"
+
+  osrm:
+    image: *osrm-image
+    command: ["osrm-routed", "--algorithm", "mld", "--max-table-size", "1000", "/data/region.osrm"]
+    ports:
+      - "127.0.0.1:${OSRM_PORT:-5000}:5000"
+    volumes:
+      - ${OSRM_DATA_DIR:-osrm-data}:/data:ro
+    depends_on:
+      osrm-prepare:
+        condition: service_completed_successfully
+    healthcheck:
+      # Pas de curl dans l'image : requete HTTP brute (point proche de la gare de Nantes).
+      # bash explicite : /bin/sh (dash) ne connait pas /dev/tcp.
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/5000 && printf 'GET /nearest/v1/driving/-1.5418,47.2172 HTTP/1.1\\r\\nHost: localhost\\r\\nConnection: close\\r\\n\\r\\n' >&3 && grep -q '\"code\":\"Ok\"' <&3"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    deploy:
+      resources:
+        limits:
+          memory: ${OSRM_MEMORY:-1g}
+    restart: unless-stopped
+
 volumes:
   postgres-data:
+  osrm-data:
