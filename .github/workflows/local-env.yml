@@ -67,7 +67,11 @@ jobs:
         run: ./scripts/verify.sh
 
       - name: Allegement du cache OSRM (l'extrait brut n'est plus utile une fois prepare)
-        run: rm -f .osrm-data/region.osm.pbf && du -sh .osrm-data
+        run: |
+          # Fichiers crees par root dans les conteneurs (certains en 600) : les rendre lisibles pour actions/cache
+          sudo chown -R "$(id -u):$(id -g)" .osrm-data
+          rm -f .osrm-data/region.osm.pbf
+          du -sh .osrm-data
 
       - name: Journaux en cas d'echec
         if: failure()
