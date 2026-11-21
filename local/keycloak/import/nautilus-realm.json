@@ -1,0 +1,203 @@
+{
+  "realm": "nautilus",
+  "displayName": "Nautilus (local)",
+  "enabled": true,
+  "sslRequired": "external",
+  "registrationAllowed": false,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "resetPasswordAllowed": false,
+  "editUsernameAllowed": false,
+  "bruteForceProtected": true,
+  "internationalizationEnabled": true,
+  "supportedLocales": [
+    "fr",
+    "en"
+  ],
+  "defaultLocale": "fr",
+  "accessTokenLifespan": 300,
+  "ssoSessionIdleTimeout": 1800,
+  "roles": {
+    "realm": [
+      {
+        "name": "passenger",
+        "description": "Passager : reserve une course pour lui-meme"
+      },
+      {
+        "name": "booker",
+        "description": "Reservant : reserve pour un tiers (aidant, etablissement)"
+      },
+      {
+        "name": "driver",
+        "description": "Chauffeur"
+      },
+      {
+        "name": "admin",
+        "description": "Administrateur du back-office"
+      }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "nautilus-passenger-app",
+      "name": "Nautilus - appli passager",
+      "description": "Appli Flutter passager (client public, Authorization Code + PKCE)",
+      "enabled": true,
+      "publicClient": true,
+      "protocol": "openid-connect",
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "frontchannelLogout": true,
+      "redirectUris": [
+        "fr.nautilus.passenger:/oauthredirect",
+        "http://localhost:*"
+      ],
+      "webOrigins": [
+        "+"
+      ],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "fr.nautilus.passenger:/oauthredirect##http://localhost:*"
+      }
+    },
+    {
+      "clientId": "nautilus-driver-app",
+      "name": "Nautilus - appli chauffeur",
+      "description": "Appli Flutter chauffeur (client public, Authorization Code + PKCE)",
+      "enabled": true,
+      "publicClient": true,
+      "protocol": "openid-connect",
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "frontchannelLogout": true,
+      "redirectUris": [
+        "fr.nautilus.driver:/oauthredirect",
+        "http://localhost:*"
+      ],
+      "webOrigins": [
+        "+"
+      ],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "fr.nautilus.driver:/oauthredirect##http://localhost:*"
+      }
+    },
+    {
+      "clientId": "nautilus-back-office",
+      "name": "Nautilus - back-office",
+      "description": "Back-office Angular (client public, Authorization Code + PKCE)",
+      "enabled": true,
+      "publicClient": true,
+      "protocol": "openid-connect",
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "frontchannelLogout": true,
+      "redirectUris": [
+        "http://localhost:4200/*"
+      ],
+      "webOrigins": [
+        "http://localhost:4200"
+      ],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "http://localhost:4200/*"
+      }
+    },
+    {
+      "clientId": "nautilus-dev-tools",
+      "name": "Outils de dev (LOCAL UNIQUEMENT)",
+      "description": "Jetons en ligne de commande (password grant) pour tester l'API en local. Ne jamais reprendre en recette/production.",
+      "enabled": true,
+      "publicClient": true,
+      "protocol": "openid-connect",
+      "standardFlowEnabled": false,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": true,
+      "serviceAccountsEnabled": false
+    }
+  ],
+  "users": [
+    {
+      "username": "passenger1",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "passenger1@nautilus.test",
+      "firstName": "Paul",
+      "lastName": "Passager-Test",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "${KEYCLOAK_TEST_USERS_PASSWORD}",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "default-roles-nautilus",
+        "passenger"
+      ]
+    },
+    {
+      "username": "booker1",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "booker1@nautilus.test",
+      "firstName": "Brigitte",
+      "lastName": "Reservant-Test",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "${KEYCLOAK_TEST_USERS_PASSWORD}",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "default-roles-nautilus",
+        "booker"
+      ]
+    },
+    {
+      "username": "driver1",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "driver1@nautilus.test",
+      "firstName": "Denis",
+      "lastName": "Chauffeur-Test",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "${KEYCLOAK_TEST_USERS_PASSWORD}",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "default-roles-nautilus",
+        "driver"
+      ]
+    },
+    {
+      "username": "admin1",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "admin1@nautilus.test",
+      "firstName": "Alice",
+      "lastName": "Admin-Test",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "${KEYCLOAK_TEST_USERS_PASSWORD}",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "default-roles-nautilus",
+        "admin"
+      ]
+    }
+  ]
+}

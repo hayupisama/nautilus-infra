@@ -21,7 +21,7 @@ scripts/               # bootstrap k3s, sauvegarde, restauration
 
 ## État
 
-Dépôt vide. Première tâche : script de bootstrap k3s + cert-manager, puis chart `nautilus-api`.
+Environnement local en place (U44) : `local/compose.yaml` (PostGIS + Keycloak, realm `nautilus` importé depuis `local/keycloak/import/`), vérifié par `local/scripts/verify.sh` et le workflow `local-env`. VPS : bootstrap k3s + cert-manager, puis chart `nautilus-api` (en attente du VPS).
 
 ## Règles
 

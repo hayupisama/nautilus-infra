@@ -1,0 +1,57 @@
+# Verifie l'environnement local (local/compose.yaml) : demarrage, healthchecks, realm Keycloak, comptes de test.
+name: local-env
+
+on:
+  pull_request:
+    paths:
+      - "local/**"
+      - ".github/workflows/local-env.yml"
+  push:
+    branches: [main]
+    paths:
+      - "local/**"
+      - ".github/workflows/local-env.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: local-env-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  compose:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: local
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Lint des scripts (shellcheck)
+        run: shellcheck scripts/*.sh postgres/init/*.sh
+
+      - name: Realm JSON valide
+        run: python3 -m json.tool keycloak/import/nautilus-realm.json >/dev/null
+
+      - name: .env avec valeurs aleatoires (aucune valeur versionnee ni affichee)
+        run: ./scripts/init-env.sh
+
+      - name: Validation du fichier compose
+        run: docker compose config -q
+
+      - name: Demarrage (attente des healthchecks)
+        run: docker compose up -d --wait --wait-timeout 300
+
+      - name: Verifications (PostGIS, realm, clients PKCE, comptes de test)
+        run: ./scripts/verify.sh
+
+      - name: Journaux en cas d'echec
+        if: failure()
+        run: docker compose logs --no-color --tail 200
+
+      - name: Arret et nettoyage
+        if: always()
+        run: docker compose down -v
