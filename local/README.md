@@ -12,14 +12,27 @@ Consommation mesurée au repos : Keycloak ~660 Mo, PostgreSQL ~140 Mo.
 ## Prérequis
 
 - Docker Desktop (ou Docker Engine) avec Docker Compose v2.
-- Pour le script de vérification : bash (Git Bash sous Windows), curl, Python 3.
+- Pour les scripts : bash (Git Bash sous Windows), openssl, curl, Python 3.
+
+## Configuration (une seule fois, à faire par chaque personne qui clone le dépôt)
+
+Aucune valeur sensible n'est versionnée, même fictive : identifiants et mots de passe vivent uniquement
+dans `local/.env`, propre à votre poste et ignoré par git. `.env.example` est le modèle, sans valeurs.
+
+Au choix :
+
+- automatique : `./scripts/init-env.sh` crée `.env` et remplit chaque variable vide avec une valeur aléatoire ;
+- manuel : `cp .env.example .env`, puis remplir chaque variable vide en suivant les commentaires du fichier.
+
+Ne jamais commiter `.env`, ne jamais écrire de valeur dans `.env.example`. Si une variable est vide,
+`docker compose` refuse de démarrer en indiquant laquelle.
 
 ## Démarrer
 
 Depuis le dossier `local/` :
 
 ```bash
-cp .env.example .env          # une seule fois ; valeurs de développement factices
+./scripts/init-env.sh        # une seule fois (voir « Configuration »)
 docker compose up -d --wait   # démarre et attend que les healthchecks soient verts (~30 s, plus au premier téléchargement)
 ./scripts/verify.sh           # facultatif : vérifie PostGIS, le realm, les clients et les comptes de test
 ```
@@ -64,7 +77,9 @@ docker compose up -d --wait
 
 ## Comptes de test
 
-Données entièrement fictives (domaine réservé `.test`). Mot de passe commun : `nautilus`.
+Données entièrement fictives (domaine réservé `.test`). Mot de passe commun : la valeur de
+`KEYCLOAK_TEST_USERS_PASSWORD` dans votre `.env`, injectée à l'import du realm (le fichier du realm ne contient
+qu'un emplacement `${KEYCLOAK_TEST_USERS_PASSWORD}`). Après l'avoir changée : réinitialiser.
 
 | Identifiant | E-mail | Rôle |
 | --- | --- | --- |
@@ -73,16 +88,17 @@ Données entièrement fictives (domaine réservé `.test`). Mot de passe commun 
 | `driver1` | driver1@nautilus.test | `driver` |
 | `admin1` | admin1@nautilus.test | `admin` |
 
-Console d'administration : http://localhost:8180/admin (compte et mot de passe : `KEYCLOAK_ADMIN_USER` / `KEYCLOAK_ADMIN_PASSWORD` du fichier `.env`).
+Console d'administration : http://localhost:8180/admin (identifiants : `KEYCLOAK_ADMIN_USER` / `KEYCLOAK_ADMIN_PASSWORD` de votre `.env`).
 
 Tester une connexion dans le navigateur : http://localhost:8180/realms/nautilus/account puis se connecter avec un compte ci-dessus.
 
-Obtenir un jeton en ligne de commande :
+Obtenir un jeton en ligne de commande (depuis `local/`, le mot de passe est lu dans `.env`) :
 
 ```bash
+set -a; . ./.env; set +a
 curl -s http://localhost:8180/realms/nautilus/protocol/openid-connect/token \
   -d grant_type=password -d client_id=nautilus-dev-tools \
-  -d username=passenger1 -d password=nautilus
+  -d username=passenger1 --data-urlencode "password=$KEYCLOAK_TEST_USERS_PASSWORD"
 ```
 
 ## Brancher l'API (nautilus-api)
@@ -92,14 +108,15 @@ En profil dev, à la place des Dev Services :
 ```properties
 %dev.quarkus.datasource.devservices.enabled=false
 %dev.quarkus.datasource.jdbc.url=jdbc:postgresql://localhost:5432/nautilus
-%dev.quarkus.datasource.username=nautilus
 %dev.quarkus.oidc.devservices.enabled=false
 %dev.quarkus.oidc.auth-server-url=http://localhost:8180/realms/nautilus
 ```
 
-Le mot de passe de la base se passe par variable d'environnement (`QUARKUS_DATASOURCE_PASSWORD`, valeur de `POSTGRES_PASSWORD` dans `.env`), jamais dans un fichier versionné.
+Identifiant et mot de passe de la base se passent par variables d'environnement (`QUARKUS_DATASOURCE_USERNAME`
+et `QUARKUS_DATASOURCE_PASSWORD`, valeurs de `POSTGRES_USER` et `POSTGRES_PASSWORD` de votre `.env`), jamais dans un fichier versionné.
 
 ## Sécurité
 
-- `.env` est ignoré par git ; `.env.example` ne contient que des valeurs factices de développement.
+- `.env` est ignoré par git ; `.env.example` ne contient aucune valeur sensible (emplacements vides à remplir).
+- Les scripts lisent l'environnement et n'affichent jamais les valeurs ; la CI génère un `.env` aléatoire à chaque exécution.
 - Les comptes de test et le client `nautilus-dev-tools` n'existent qu'en local : la recette et la production auront leur propre realm, avec des secrets chiffrés (SOPS).

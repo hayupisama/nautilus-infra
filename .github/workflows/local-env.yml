@@ -36,8 +36,8 @@ jobs:
       - name: Realm JSON valide
         run: python3 -m json.tool keycloak/import/nautilus-realm.json >/dev/null
 
-      - name: Configuration factice (valeurs de .env.example)
-        run: cp .env.example .env
+      - name: .env avec valeurs aleatoires (aucune valeur versionnee ni affichee)
+        run: ./scripts/init-env.sh
 
       - name: Validation du fichier compose
         run: docker compose config -q

@@ -1,5 +1,6 @@
 # Environnement local Nautilus : PostgreSQL/PostGIS + Keycloak (realm "nautilus" importe au demarrage).
-# Usage : voir local/README.md. Les variables viennent de local/.env (copie de .env.example).
+# Usage : voir local/README.md. Les variables viennent de local/.env (copie REMPLIE de .env.example) :
+# aucune valeur sensible n'est ecrite ici ni dans le depot.
 name: nautilus-local
 
 services:
@@ -7,12 +8,12 @@ services:
     # Meme image que les Dev Services de nautilus-api (epinglee par digest)
     image: postgis/postgis:16-3.4@sha256:44126d872ac91993766c341e369c539e8196614321765d36a6f1bab0419a5fa5
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:?copier .env.example en .env}
-      POSTGRES_USER: ${POSTGRES_USER:?copier .env.example en .env}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?copier .env.example en .env}
-      KEYCLOAK_DB_NAME: ${KEYCLOAK_DB_NAME:?copier .env.example en .env}
-      KEYCLOAK_DB_USER: ${KEYCLOAK_DB_USER:?copier .env.example en .env}
-      KEYCLOAK_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD:?copier .env.example en .env}
+      POSTGRES_DB: ${POSTGRES_DB:?remplir .env (voir .env.example)}
+      POSTGRES_USER: ${POSTGRES_USER:?remplir .env (voir .env.example)}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?remplir .env (voir .env.example)}
+      KEYCLOAK_DB_NAME: ${KEYCLOAK_DB_NAME:?remplir .env (voir .env.example)}
+      KEYCLOAK_DB_USER: ${KEYCLOAK_DB_USER:?remplir .env (voir .env.example)}
+      KEYCLOAK_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD:?remplir .env (voir .env.example)}
     ports:
       - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
     volumes:
@@ -38,15 +39,17 @@ services:
     command: ["start-dev", "--import-realm"]
     environment:
       KC_DB: postgres
-      KC_DB_URL: jdbc:postgresql://postgres:5432/${KEYCLOAK_DB_NAME}
-      KC_DB_USERNAME: ${KEYCLOAK_DB_USER}
-      KC_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD}
+      KC_DB_URL: jdbc:postgresql://postgres:5432/${KEYCLOAK_DB_NAME:?remplir .env (voir .env.example)}
+      KC_DB_USERNAME: ${KEYCLOAK_DB_USER:?remplir .env (voir .env.example)}
+      KC_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD:?remplir .env (voir .env.example)}
       KC_HTTP_PORT: "8080"
       KC_HOSTNAME: http://localhost:${KEYCLOAK_PORT:-8180}
       KC_HEALTH_ENABLED: "true"
       KC_METRICS_ENABLED: "false"
-      KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN_USER:?copier .env.example en .env}
-      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?copier .env.example en .env}
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN_USER:?remplir .env (voir .env.example)}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?remplir .env (voir .env.example)}
+      # Substitue a l'import dans nautilus-realm.json (credentials des comptes de test)
+      KEYCLOAK_TEST_USERS_PASSWORD: ${KEYCLOAK_TEST_USERS_PASSWORD:?remplir .env (voir .env.example)}
       # Heap bornee pour tenir dans la limite memoire du conteneur
       JAVA_OPTS_KC_HEAP: "-XX:MaxRAMPercentage=70 -XX:InitialRAMPercentage=25"
     ports:

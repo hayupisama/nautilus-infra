@@ -4,6 +4,7 @@
 #  - realm "nautilus" importe : roles, clients PKCE S256, comptes de test ;
 #  - connexion de chaque compte de test et role present dans le jeton.
 # Prerequis : docker, curl, python3 (ou python). Usage : ./scripts/verify.sh (depuis local/)
+# Les identifiants sont lus dans local/.env ; aucun n'est affiche.
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
@@ -59,7 +60,7 @@ for pair in passenger1:passenger booker1:booker driver1:driver admin1:admin; do
   u=${pair%%:*}; r=${pair##*:}
   roles=$(curl -fsS "$KC/realms/nautilus/protocol/openid-connect/token" \
     --data-urlencode grant_type=password --data-urlencode client_id=nautilus-dev-tools \
-    --data-urlencode "username=$u" --data-urlencode password=nautilus \
+    --data-urlencode "username=$u" --data-urlencode "password=$KEYCLOAK_TEST_USERS_PASSWORD" \
     | json "' '.join(__import__('json').loads(__import__('base64').urlsafe_b64decode(d['access_token'].split('.')[1]+'==')).get('realm_access',{}).get('roles',[]))" || echo "connexion-impossible")
   case " $roles " in *" $r "*) ok "$u -> $r" ;; *) ko "$u : roles='$roles'" ;; esac
 done
