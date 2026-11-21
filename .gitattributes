@@ -1,3 +1,10 @@
 # Fichiers de session Claude Code : générés, réservés à Claude Code, repliés dans les diffs GitHub.
 .claude/sessions/** linguist-generated=true -diff merge=union
 .claude/scrum/** linguist-generated=true
+
+# Scripts et fichiers lus dans des conteneurs Linux : toujours en LF.
+*.sh text eol=lf
+*.yaml text eol=lf
+*.yml text eol=lf
+*.json text eol=lf
+.env.example text eol=lf

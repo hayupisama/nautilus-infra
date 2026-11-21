@@ -1,0 +1,74 @@
+# Environnement local Nautilus : PostgreSQL/PostGIS + Keycloak (realm "nautilus" importe au demarrage).
+# Usage : voir local/README.md. Les variables viennent de local/.env (copie de .env.example).
+name: nautilus-local
+
+services:
+  postgres:
+    # Meme image que les Dev Services de nautilus-api (epinglee par digest)
+    image: postgis/postgis:16-3.4@sha256:44126d872ac91993766c341e369c539e8196614321765d36a6f1bab0419a5fa5
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:?copier .env.example en .env}
+      POSTGRES_USER: ${POSTGRES_USER:?copier .env.example en .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?copier .env.example en .env}
+      KEYCLOAK_DB_NAME: ${KEYCLOAK_DB_NAME:?copier .env.example en .env}
+      KEYCLOAK_DB_USER: ${KEYCLOAK_DB_USER:?copier .env.example en .env}
+      KEYCLOAK_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD:?copier .env.example en .env}
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      # Monter le fichier seul : monter le dossier masquerait le script PostGIS de l'image (10_postgis.sh)
+      - ./postgres/init/20-keycloak-db.sh:/docker-entrypoint-initdb.d/20-keycloak-db.sh:ro
+    healthcheck:
+      # En TCP (-h 127.0.0.1) : le serveur temporaire de l'init n'ecoute que sur la socket Unix,
+      # donc le controle ne passe qu'une fois l'init terminee ; la base Keycloak doit aussi repondre.
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\" && psql -h 127.0.0.1 -U \"$${POSTGRES_USER}\" -d \"$${KEYCLOAK_DB_NAME}\" -tAc 'select 1' >/dev/null"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+    restart: unless-stopped
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.8.2@sha256:7e66a96e4739239070aeaf72e4c5decf0f7f682cfc725b9f7ea2b336eaba38b3
+    command: ["start-dev", "--import-realm"]
+    environment:
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://postgres:5432/${KEYCLOAK_DB_NAME}
+      KC_DB_USERNAME: ${KEYCLOAK_DB_USER}
+      KC_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD}
+      KC_HTTP_PORT: "8080"
+      KC_HOSTNAME: http://localhost:${KEYCLOAK_PORT:-8180}
+      KC_HEALTH_ENABLED: "true"
+      KC_METRICS_ENABLED: "false"
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN_USER:?copier .env.example en .env}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?copier .env.example en .env}
+      # Heap bornee pour tenir dans la limite memoire du conteneur
+      JAVA_OPTS_KC_HEAP: "-XX:MaxRAMPercentage=70 -XX:InitialRAMPercentage=25"
+    ports:
+      - "127.0.0.1:${KEYCLOAK_PORT:-8180}:8080"
+      - "127.0.0.1:${KEYCLOAK_MANAGEMENT_PORT:-9000}:9000"
+    volumes:
+      - ./keycloak/import:/opt/keycloak/data/import:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      # L'image n'a ni curl ni wget : requete HTTP brute sur le port de management.
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/9000 && printf 'GET /health/ready HTTP/1.1\\r\\nHost: localhost\\r\\nConnection: close\\r\\n\\r\\n' >&3 && grep -q '\"UP\"' <&3"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          memory: 1g
+    restart: unless-stopped
+
+volumes:
+  postgres-data:
