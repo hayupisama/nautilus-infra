@@ -31,3 +31,6 @@ kubeconfig*
 .claude/settings.local.json
 .npmrc
 .netrc
+
+# Donnees OSRM locales (extrait OSM et fichiers prepares)
+.osrm-data/

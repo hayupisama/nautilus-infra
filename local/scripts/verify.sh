@@ -2,11 +2,15 @@
 # Verifie l'environnement local lance par `docker compose up` (local/compose.yaml) :
 #  - conteneurs sains (healthchecks), PostGIS actif, base Keycloak creee ;
 #  - realm "nautilus" importe : roles, clients PKCE S256, comptes de test ;
-#  - connexion de chaque compte de test et role present dans le jeton.
-# Prerequis : docker, curl, python3 (ou python). Usage : ./scripts/verify.sh (depuis local/)
+#  - connexion de chaque compte de test et role present dans le jeton ;
+#  - OSRM : itineraire gare de Nantes -> aeroport plausible, temps de reponse mesure.
+# Prerequis : docker, curl, python3 (ou python).
+# Usage (depuis local/) : ./scripts/verify.sh [--sans-osrm]   (--sans-osrm : pile lancee sans OSRM)
 # Les identifiants sont lus dans local/.env ; aucun n'est affiche.
 set -euo pipefail
 
+with_osrm=1
+[ "${1:-}" = --sans-osrm ] && with_osrm=0
 cd "$(dirname "$0")/.."
 set -a
 # shellcheck disable=SC1091
@@ -27,7 +31,9 @@ check() { if eval "$2" >/dev/null 2>&1; then ok "$1"; else ko "$1"; fi; }
 json() { "$PY" -c "import sys,json; d=json.load(sys.stdin); print($1)"; }
 
 echo "Conteneurs"
-for s in postgres keycloak; do
+services="postgres keycloak"
+[ "$with_osrm" = 1 ] && services="$services osrm"
+for s in $services; do
   st=$(docker inspect -f '{{.State.Health.Status}}' "$(docker compose ps -q "$s")" 2>/dev/null || echo absent)
   if [ "$st" = healthy ]; then ok "$s healthy"; else ko "$s : $st"; fi
 done
@@ -64,6 +70,27 @@ for pair in passenger1:passenger booker1:booker driver1:driver admin1:admin; do
     | json "' '.join(__import__('json').loads(__import__('base64').urlsafe_b64decode(d['access_token'].split('.')[1]+'==')).get('realm_access',{}).get('roles',[]))" || echo "connexion-impossible")
   case " $roles " in *" $r "*) ok "$u -> $r" ;; *) ko "$u : roles='$roles'" ;; esac
 done
+
+if [ "$with_osrm" = 1 ]; then
+  echo "OSRM"
+  # 127.0.0.1 et non localhost : sous Windows, localhost tente d'abord ::1 (IPv6) et ajoute ~200 ms
+  OSRM="http://127.0.0.1:${OSRM_PORT:-5000}"
+  # Trajet nantais de reference : gare de Nantes (sortie sud) -> aeroport Nantes Atlantique
+  route="$OSRM/route/v1/driving/-1.5418,47.2172;-1.6108,47.1532?overview=false"
+  res=$(curl -fsS "$route" | json "'%s %d %d' % (d['code'], d['routes'][0]['distance'], d['routes'][0]['duration'])" || echo "erreur 0 0")
+  read -r code dist dur <<<"$res"
+  if [ "$code" = Ok ] && [ "$dist" -gt 8000 ] && [ "$dist" -lt 25000 ]; then
+    ok "itineraire gare -> aeroport : $(( dist / 1000 )) km, $(( dur / 60 )) min"
+  else
+    ko "itineraire gare -> aeroport : $res"
+  fi
+  check "matrice 3x3 (table)" "curl -fsS '$OSRM/table/v1/driving/-1.5418,47.2172;-1.6108,47.1532;-1.5536,47.2184' | grep -q '\"code\":\"Ok\"'"
+  # Temps de reponse : 20 requetes successives, mediane et maximum (ms)
+  stats=$(for _ in $(seq 20); do curl -fsS -o /dev/null -w '%{time_total}\n' "$route"; done \
+    | "$PY" -c "import sys,statistics as s; t=[float(x)*1000 for x in sys.stdin.read().split()]; print('%d %d' % (s.median(t), max(t)))" || echo "99999 99999")
+  read -r median max <<<"$stats"
+  if [ "$median" -lt 500 ]; then ok "temps de reponse itineraire : mediane $median ms, max $max ms (20 requetes)"; else ko "temps de reponse : mediane $median ms (seuil 500 ms)"; fi
+fi
 
 if [ "$fail" != 0 ]; then echo "Des verifications ont echoue."; exit 1; fi
 echo "Tout est OK."
