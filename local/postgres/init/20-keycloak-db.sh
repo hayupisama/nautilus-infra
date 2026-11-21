@@ -5,7 +5,8 @@
 
 psql -v ON_ERROR_STOP=1 \
   --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" \
-  -v kc_db="$KEYCLOAK_DB_NAME" -v kc_user="$KEYCLOAK_DB_USER" -v kc_pass="$KEYCLOAK_DB_PASSWORD" <<'SQL'
-CREATE ROLE :"kc_user" WITH LOGIN PASSWORD :'kc_pass';
-CREATE DATABASE :"kc_db" OWNER :"kc_user";
+  -v kc_db="$KEYCLOAK_DB_NAME" -v kc_user="$KEYCLOAK_DB_USER" -v kc_cred="$KEYCLOAK_DB_PASSWORD" <<'SQL'
+-- Valeurs passees en variables psql et echappees par format() (%I identifiant, %L litteral).
+SELECT format('CREATE ROLE %I WITH LOGIN PASSWORD %L', :'kc_user', :'kc_cred') \gexec
+SELECT format('CREATE DATABASE %I OWNER %I', :'kc_db', :'kc_user') \gexec
 SQL
